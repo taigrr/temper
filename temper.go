@@ -5,46 +5,100 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 )
 
-func main() {
-	tempChan := make(chan float32)
-	temperW, err := os.OpenFile("/dev/hidraw18",
+type reading struct {
+	value float32
+	error error
+}
+
+type Temper struct {
+	reader *os.File
+	writer *os.File
+	lock   sync.Mutex
+}
+
+func New(descriptor string) (*Temper, error) {
+	if _, statErr := os.Stat(descriptor); statErr != nil {
+		return &Temper{}, statErr
+	}
+	r, readErr := os.Open(descriptor)
+	if readErr != nil {
+		return &Temper{}, readErr
+	}
+	w, writeErr := os.OpenFile(descriptor,
 		os.O_APPEND|os.O_WRONLY, os.ModeDevice)
-	if err != nil {
-		panic(err)
+	if writeErr != nil {
+		r.Close()
+		return &Temper{}, writeErr
 	}
-	defer temperW.Close()
+	t := Temper{reader: r, writer: w}
+	return &t, nil
+}
 
-	temper, err := os.Open("/dev/hidraw18")
-	if err != nil {
-		panic(err)
+func (t *Temper) Close() error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	rErr := t.reader.Close()
+	wErr := t.writer.Close()
+	if rErr != nil {
+		return rErr
 	}
-	defer temper.Close()
+	return wErr
+}
 
+func (t *Temper) ReadC() (float32, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	tempChan := make(chan reading)
 	go func() {
+		// prepare a buffer and get ready to read
+		// from the temper hid device
 		response := make([]byte, 8)
-		_, err = temper.Read(response)
+		_, err := t.reader.Read(response)
 		if err != nil {
-			panic(err)
+			tempChan <- reading{0, err}
+			return
 		}
+		// interpret the bytes as hex
 		hexStr := hex.EncodeToString(response)
-		if err != nil {
-			panic(err)
-		}
+		// extract the temperature fields from the string
 		temp := hexStr[4:8]
+		// convert the hex ints to an integer
 		tempInt, err := strconv.ParseInt(temp, 16, 64)
 		if err != nil {
-			panic(err)
+			tempChan <- reading{0, err}
+			return
 		}
+		// divide the result by 100 and send to chan
 		float := float32(tempInt) / 100
-		tempChan <- float
+		tempChan <- reading{error: nil, value: float}
 	}()
-	//	// magic byte sequence to request a temperature reading
-	_, err = temperW.Write([]byte{0, 1, 128, 51, 1, 0, 0, 0, 0})
+	// send magic byte sequence to request a temperature reading
+	_, err := t.writer.Write([]byte{0, 1, 128, 51, 1, 0, 0, 0, 0})
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	temperature := <-tempChan
-	fmt.Printf("temp: %f\n", temperature)
+	read := <-tempChan
+	return read.value, read.error
+}
+
+func (t *Temper) ReadF() (float32, error) {
+	c, err := t.ReadC()
+	if err != nil {
+		return 0, err
+	}
+	f := c*9.0/5.0 + 32.0
+	return f, err
+}
+
+func main() {
+	descriptor := "/dev/hidraw18"
+	temper, _ := New(descriptor)
+	for {
+		f, _ := temper.ReadF()
+		c, _ := temper.ReadC()
+		fmt.Printf("F: %f C: %f\n", f, c)
+	}
 }
