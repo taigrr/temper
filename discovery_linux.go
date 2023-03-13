@@ -22,6 +22,9 @@ func FindTempersWithTimeout(timeout time.Duration) ([]*Temper, error) {
 	tempers := []*Temper{}
 	for _, d := range dirEnts {
 		if name := d.Name(); strings.HasPrefix(name, "temper") {
+			if isInputDevice(name) {
+				continue
+			}
 			temper, err := New(filepath.Join("/dev", name))
 			if err != nil {
 				continue
@@ -48,4 +51,19 @@ func FindTempersWithTimeout(timeout time.Duration) ([]*Temper, error) {
 // FindTempersWithTimeout for more details
 func FindTempers() ([]*Temper, error) {
 	return FindTempersWithTimeout(time.Millisecond * 250)
+}
+
+// Determines if the current hidraw device also doubles as a virtual keyboard
+//
+// some temper devices also have a keyboard emulation mode.
+// The regular discovery function can trigger data entry mode, and cause
+// annoying and distracting typing to happen, so this function allows us to
+// skip the check on devices we know aren't temper sensors
+func isInputDevice(temperDescriptor string) bool {
+	hidrawDesc := strings.ReplaceAll(temperDescriptor, "temper", "hidraw")
+	inputPath := filepath.Join("/sys/class/hidraw", hidrawDesc, "device/input")
+	if _, statErr := os.Stat(inputPath); statErr == nil {
+		return true
+	}
+	return false
 }
