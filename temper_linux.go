@@ -18,6 +18,10 @@ type reading struct {
 	error error
 }
 
+// Open a new Temper Device
+//
+// It is the caller's responsibility to call Close()
+// to prevent a file descriptor leak
 func New(descriptor string) (*Temper, error) {
 	if _, statErr := os.Stat(descriptor); statErr != nil {
 		return &Temper{}, statErr
@@ -36,6 +40,7 @@ func New(descriptor string) (*Temper, error) {
 	return &t, nil
 }
 
+// Close the file descriptors for the Temper Device
 func (t *Temper) Close() error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -47,6 +52,7 @@ func (t *Temper) Close() error {
 	return wErr
 }
 
+// Read the internal sensor temperature in Celcius
 func (t *Temper) ReadC() (float32, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -83,6 +89,7 @@ func (t *Temper) ReadC() (float32, error) {
 	return read.value, read.error
 }
 
+// Read the internal sensor temperature in Fahrenheit
 func (t *Temper) ReadF() (float32, error) {
 	c, err := t.ReadC()
 	if err != nil {
