@@ -1,22 +1,21 @@
-package main
+package temper
 
 import (
 	"encoding/hex"
-	"fmt"
 	"os"
 	"strconv"
 	"sync"
 )
 
-type reading struct {
-	value float32
-	error error
-}
-
 type Temper struct {
 	reader *os.File
 	writer *os.File
 	lock   sync.Mutex
+}
+
+type reading struct {
+	value float32
+	error error
 }
 
 func New(descriptor string) (*Temper, error) {
@@ -91,14 +90,4 @@ func (t *Temper) ReadF() (float32, error) {
 	}
 	f := c*9.0/5.0 + 32.0
 	return f, err
-}
-
-func main() {
-	descriptor := "/dev/hidraw18"
-	temper, _ := New(descriptor)
-	for {
-		f, _ := temper.ReadF()
-		c, _ := temper.ReadC()
-		fmt.Printf("F: %f C: %f\n", f, c)
-	}
 }
