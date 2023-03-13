@@ -29,3 +29,5 @@ Unplug and replug the device.
 ## Example Code
 
 There are examples on how to use this repo in [examples/main.go](/examples/main.go)
+
+Additionally, there is a cli-tool available at [temper-cli](https://github.com/taigrr/temper-cli)
