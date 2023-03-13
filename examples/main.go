@@ -1,35 +1,66 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/taigrr/temper"
 )
 
+func findTempers() ([]*temper.Temper, error) {
+	tempers := []*temper.Temper{}
+	// list over dev folder for temperXX devices
+	dirEnts, err := os.ReadDir("/dev")
+	if err != nil {
+		return tempers, err
+	}
+	for _, d := range dirEnts {
+		if name := d.Name(); strings.HasPrefix(name, "temper") {
+			temper, err := temper.New(filepath.Join("/dev", name))
+			if err != nil {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*250)
+			_, err = temper.ReadCWithContext(ctx)
+			if err == nil {
+				tempers = append(tempers, temper)
+			} else {
+				temper.Close()
+			}
+			cancel()
+
+		}
+	}
+
+	return tempers, nil
+}
+
 func main() {
-	// this is an example hidraw file descriptor, but if the udev rules
-	// work on your system, you can use /dev/temper
-	descriptor := "/dev/hidraw18"
-	temperDev, err := temper.New(descriptor)
+	tempers, err := findTempers()
 	if err != nil {
 		panic(err)
 	}
 	for {
-		f, fErr := temperDev.ReadF()
-		if fErr != nil {
-			log.Println(fErr)
-			time.Sleep(time.Second)
-			continue
+		for _, temperDev := range tempers {
+			f, fErr := temperDev.ReadF()
+			if fErr != nil {
+				log.Println(fErr)
+				time.Sleep(time.Second)
+				continue
+			}
+			c, cErr := temperDev.ReadC()
+			if cErr != nil {
+				log.Println(cErr)
+				time.Sleep(time.Second)
+				continue
+			}
+			fmt.Printf("Read from %s: F: %f C: %f\n", temperDev.Descriptor(), f, c)
 		}
-		c, cErr := temperDev.ReadC()
-		if cErr != nil {
-			log.Println(cErr)
-			time.Sleep(time.Second)
-			continue
-		}
-		fmt.Printf("F: %f C: %f\n", f, c)
 		time.Sleep(time.Second)
 	}
 }

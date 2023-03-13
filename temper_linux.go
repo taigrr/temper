@@ -8,9 +8,10 @@ import (
 )
 
 type Temper struct {
-	reader *os.File
-	writer *os.File
-	lock   sync.Mutex
+	descriptor string
+	reader     *os.File
+	writer     *os.File
+	lock       sync.Mutex
 }
 
 type reading struct {
@@ -36,8 +37,16 @@ func New(descriptor string) (*Temper, error) {
 		r.Close()
 		return &Temper{}, writeErr
 	}
-	t := Temper{reader: r, writer: w}
+	t := Temper{reader: r, writer: w, descriptor: descriptor}
 	return &t, nil
+}
+
+func (t *Temper) Descriptor() string {
+	return t.descriptor
+}
+
+func (t *Temper) String() string {
+	return t.Descriptor()
 }
 
 // Close the file descriptors for the Temper Device
