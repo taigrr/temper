@@ -7,14 +7,6 @@
 
 A zero-dependency library to read USB TEMPer thermometers on Linux.
 
-## Installation
-
-Make sure you have a working Golang environment (Go 1.12 or higher is required).
-See the [install instructions](http://golang.org/doc/install.html).
-
-To install temper-cli, simply run:
-	`go get github.com/taigrr/temper/cli`
-
 ## Configuration
 
 On Linux you need to set up some udev rules to be able to access the device as
@@ -31,4 +23,6 @@ Make sure your user is part of the `plugdev` group and reload the rules with
 `sudo udevadm control --reload-rules`.
 Unplug and replug the device.
 
+## Example Code
 
+There are examples on how to use this repo in [examples/main.go](/examples/main.go)
