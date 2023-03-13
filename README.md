@@ -14,7 +14,10 @@ a non-root/regular user.
 Edit `/etc/udev/rules.d/99-temper.rules` and add these lines:
 
 ```
-ACTION=="add", SUBSYSTEM=="hidraw", ATTR{idVendor}=="0c45", ATTR{idProduct}=="7401", MODE:="666", GROUP="plugdev", SYMLINK+="temper%n"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="e025", GROUP="plugdev", SYMLINK+="temper%n"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="7401", GROUP="plugdev", SYMLINK+="temper%n"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="7402", GROUP="plugdev", SYMLINK+="temper%n"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1130", ATTRS{idProduct}=="660c", GROUP="plugdev", SYMLINK+="temper%n"
 ```
 Note that there are many versions of the TEMPer USB and your
 `idVendor` and `idProduct` ATTRs may differ.
