@@ -31,3 +31,10 @@ Unplug and replug the device.
 There are examples on how to use this repo in [examples/main.go](/examples/main.go)
 
 Additionally, there is a cli-tool available at [temper-cli](https://github.com/taigrr/temper-cli)
+
+
+## Acknowledgement
+During my development I tested my code against the shell script found in [this article](https://funprojects.blog/2021/05/02/temper-usb-temperature-sensor/).
+
+As I only have one TEMPer device, I have sourced the product and vendor IDs for
+other TEMPer devices for the sample `.rules` file (above) from [this repo](https://github.com/edorfaus/TEMPered/blob/master/libtempered/temper_type.c).
