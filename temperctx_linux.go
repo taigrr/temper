@@ -5,85 +5,64 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"time"
 )
 
 // ReadCWithContext reads the internal sensor temperature in Celsius,
-// respecting the provided context's deadline for cancellation/timeout.
+// respecting the provided context for cancellation/timeout.
 func (t *Temper) ReadCWithContext(ctx context.Context) (float32, error) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = time.Time{}
+	type result struct {
+		value float32
+		err   error
 	}
 
-	if err := t.writer.SetWriteDeadline(deadline); err != nil {
-		return 0, fmt.Errorf("setting write deadline: %w", err)
-	}
-	defer t.writer.SetDeadline(time.Time{})
-
-	if err := t.reader.SetReadDeadline(deadline); err != nil {
-		return 0, fmt.Errorf("setting read deadline: %w", err)
-	}
-	defer t.reader.SetDeadline(time.Time{})
-
-	tempChan := make(chan reading)
+	ch := make(chan result, 1)
 	go func() {
-		// prepare a buffer and get ready to read
-		// from the temper hid device
+		// send magic byte sequence to request a temperature reading
+		_, wErr := t.writer.Write([]byte{0, 1, 128, 51, 1, 0, 0, 0, 0})
+		if wErr != nil {
+			ch <- result{0, fmt.Errorf("writing temperature request: %w", wErr)}
+			return
+		}
+
+		// read response from the temper HID device
 		response := make([]byte, 8)
-
-		if err := t.reader.SetDeadline(deadline); err != nil {
-			tempChan <- reading{0, fmt.Errorf("setting reader deadline: %w", err)}
+		_, rErr := t.reader.Read(response)
+		if rErr != nil {
+			ch <- result{0, fmt.Errorf("reading temperature response: %w", rErr)}
 			return
 		}
 
-		_, err := t.reader.Read(response)
-		if err != nil {
-			tempChan <- reading{0, err}
-			return
-		}
-
-		// interpret the bytes as hex
+		// interpret the bytes as hex and extract temperature
 		hexStr := hex.EncodeToString(response)
-		// extract the temperature fields from the string
 		temp := hexStr[4:8]
-		// convert the hex ints to an integer
+
 		tempInt, err := strconv.ParseInt(temp, 16, 64)
 		if err != nil {
-			tempChan <- reading{0, err}
+			ch <- result{0, fmt.Errorf("parsing temperature value %q: %w", temp, err)}
 			return
 		}
 
-		// divide the result by 100 and send to chan
-		float := float32(tempInt) / 100
-		tempChan <- reading{error: nil, value: float}
+		ch <- result{float32(tempInt) / 100, nil}
 	}()
-
-	// send magic byte sequence to request a temperature reading
-	_, wErr := t.writer.Write([]byte{0, 1, 128, 51, 1, 0, 0, 0, 0})
-	if wErr != nil {
-		return 0, fmt.Errorf("writing temperature request: %w", wErr)
-	}
 
 	select {
 	case <-ctx.Done():
 		return 0, ctx.Err()
-	case read := <-tempChan:
-		return read.value, read.error
+	case r := <-ch:
+		return r.value, r.err
 	}
 }
 
 // ReadFWithContext reads the internal sensor temperature in Fahrenheit,
-// respecting the provided context's deadline for cancellation/timeout.
+// respecting the provided context for cancellation/timeout.
 func (t *Temper) ReadFWithContext(ctx context.Context) (float32, error) {
 	c, err := t.ReadCWithContext(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	f := c*9.0/5.0 + 32.0
-	return f, nil
+	return c*9.0/5.0 + 32.0, nil
 }
