@@ -29,5 +29,6 @@ func main() {
 			}
 			fmt.Printf("Read from %s: F: %f C: %f\n", temperDev.Descriptor(), f, c)
 		}
+		time.Sleep(time.Second)
 	}
 }
