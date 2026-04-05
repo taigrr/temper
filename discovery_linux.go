@@ -8,12 +8,11 @@ import (
 	"time"
 )
 
-// Function which scans /dev for temperXX devices (configured by udev)
-//
-// A timeout of 250ms is recommended but as YMMV, this function allows
-// for an arbitrary timeout.
-func FindTempersWithTimeout(timeout time.Duration) ([]*Temper, error) {
-	// list over dev folder for temperXX devices
+// FindTempersWithContext scans /dev for temperXX devices (configured by udev),
+// respecting the provided context for cancellation. Each candidate device is
+// probed with a temperature read; if the read fails or the context is cancelled,
+// the device is skipped and its file descriptors are closed.
+func FindTempersWithContext(ctx context.Context) ([]*Temper, error) {
 	dirEnts, err := os.ReadDir("/dev")
 	if err != nil {
 		return []*Temper{}, err
@@ -21,34 +20,53 @@ func FindTempersWithTimeout(timeout time.Duration) ([]*Temper, error) {
 
 	tempers := []*Temper{}
 	for _, d := range dirEnts {
-		if name := d.Name(); strings.HasPrefix(name, "temper") {
-			if isInputDevice(name) {
-				continue
-			}
-			temper, err := New(filepath.Join("/dev", name))
-			if err != nil {
-				continue
-			}
-			// attempt to take a reading from the temper
-			// if the reading times out, assume it's a false positive
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			_, err = temper.ReadCWithContext(ctx)
-			if err == nil {
-				tempers = append(tempers, temper)
-			} else {
-				// prevent file descriptor leaks
-				temper.Close()
-			}
-			cancel()
+		// bail out early if the caller cancelled
+		if ctx.Err() != nil {
+			break
+		}
+
+		name := d.Name()
+		if !strings.HasPrefix(name, "temper") {
+			continue
+		}
+		if isInputDevice(name) {
+			continue
+		}
+
+		temperDev, err := New(filepath.Join("/dev", name))
+		if err != nil {
+			continue
+		}
+
+		// attempt to take a reading; if it fails, skip the device
+		_, err = temperDev.ReadCWithContext(ctx)
+		if err == nil {
+			tempers = append(tempers, temperDev)
+		} else {
+			// prevent file descriptor leaks
+			temperDev.Close()
 		}
 	}
+
 	return tempers, nil
 }
 
-// Helper function to return list of temper devices available in /dev
+// FindTempersWithTimeout scans /dev for temperXX devices (configured by udev).
+//
+// A timeout of 250ms is recommended but as YMMV, this function allows
+// for an arbitrary timeout. Each candidate device is probed with a
+// temperature read; devices that fail or time out are skipped.
+func FindTempersWithTimeout(timeout time.Duration) ([]*Temper, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return FindTempersWithContext(ctx)
+}
+
+// FindTempers returns a list of temper devices available in /dev.
 //
 // Uses the recommended default timeout of 250ms. See
-// FindTempersWithTimeout for more details
+// FindTempersWithTimeout and FindTempersWithContext for more control.
 func FindTempers() ([]*Temper, error) {
 	return FindTempersWithTimeout(time.Millisecond * 250)
 }

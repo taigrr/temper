@@ -1,6 +1,7 @@
 package temper
 
 import (
+	"context"
 	"testing"
 )
 
@@ -49,5 +50,33 @@ func TestTemperStringAndDescriptor(t *testing.T) {
 func TestIsInputDevice(t *testing.T) {
 	if isInputDevice("temper999") {
 		t.Error("expected false for non-existent hidraw device")
+	}
+}
+
+func TestFindTempersWithContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	tempers, err := FindTempersWithContext(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// with a cancelled context, no devices should be probed
+	if len(tempers) != 0 {
+		for _, dev := range tempers {
+			dev.Close()
+		}
+		t.Errorf("expected 0 tempers with cancelled context, got %d", len(tempers))
+	}
+}
+
+func TestFindTempersDoesNotPanic(t *testing.T) {
+	// FindTempers should not panic even without devices present
+	tempers, err := FindTempers()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, dev := range tempers {
+		dev.Close()
 	}
 }

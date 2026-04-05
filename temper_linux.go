@@ -1,22 +1,20 @@
 package temper
 
 import (
-	"encoding/hex"
+	"context"
 	"os"
-	"strconv"
 	"sync"
 )
 
+// Temper represents a connection to a TEMPer USB thermometer device.
+// It holds file descriptors for reading and writing to the HID device.
+// Close must be called when the device is no longer needed to prevent
+// file descriptor leaks.
 type Temper struct {
 	descriptor string
 	reader     *os.File
 	writer     *os.File
 	lock       sync.Mutex
-}
-
-type reading struct {
-	value float32
-	error error
 }
 
 // New opens a new Temper device at the given descriptor path.
@@ -61,48 +59,19 @@ func (t *Temper) Close() error {
 }
 
 // ReadC reads the internal sensor temperature in Celsius.
+//
+// This is a convenience wrapper around ReadCWithContext using a
+// background context. For cancellation or timeout support, use
+// ReadCWithContext directly.
 func (t *Temper) ReadC() (float32, error) {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	tempChan := make(chan reading)
-	go func() {
-		// prepare a buffer and get ready to read
-		// from the temper hid device
-		response := make([]byte, 8)
-		_, err := t.reader.Read(response)
-		if err != nil {
-			tempChan <- reading{0, err}
-			return
-		}
-		// interpret the bytes as hex
-		hexStr := hex.EncodeToString(response)
-		// extract the temperature fields from the string
-		temp := hexStr[4:8]
-		// convert the hex ints to an integer
-		tempInt, err := strconv.ParseInt(temp, 16, 64)
-		if err != nil {
-			tempChan <- reading{0, err}
-			return
-		}
-		// divide the result by 100 and send to chan
-		float := float32(tempInt) / 100
-		tempChan <- reading{error: nil, value: float}
-	}()
-	// send magic byte sequence to request a temperature reading
-	_, err := t.writer.Write([]byte{0, 1, 128, 51, 1, 0, 0, 0, 0})
-	if err != nil {
-		return 0, err
-	}
-	read := <-tempChan
-	return read.value, read.error
+	return t.ReadCWithContext(context.Background())
 }
 
 // ReadF reads the internal sensor temperature in Fahrenheit.
+//
+// This is a convenience wrapper around ReadFWithContext using a
+// background context. For cancellation or timeout support, use
+// ReadFWithContext directly.
 func (t *Temper) ReadF() (float32, error) {
-	c, err := t.ReadC()
-	if err != nil {
-		return 0, err
-	}
-	f := c*9.0/5.0 + 32.0
-	return f, err
+	return t.ReadFWithContext(context.Background())
 }
