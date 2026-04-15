@@ -1,34 +1,61 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/taigrr/temper"
 )
 
 func main() {
-	tempers, err := temper.FindTempers()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	tempers, err := temper.FindTempersWithContext(ctx)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	defer func() {
+		for _, dev := range tempers {
+			dev.Close()
+		}
+	}()
+
+	if len(tempers) == 0 {
+		fmt.Println("no TEMPer devices found")
+		return
+	}
+
 	for {
-		for _, temperDev := range tempers {
-			f, fErr := temperDev.ReadF()
+		for _, dev := range tempers {
+			readCtx, cancel := context.WithTimeout(ctx, time.Second)
+
+			celsius, cErr := dev.ReadCWithContext(readCtx)
+			if cErr != nil {
+				cancel()
+				log.Println(cErr)
+				continue
+			}
+
+			fahrenheit, fErr := dev.ReadFWithContext(readCtx)
+			cancel()
 			if fErr != nil {
 				log.Println(fErr)
-				time.Sleep(time.Second)
 				continue
 			}
-			c, cErr := temperDev.ReadC()
-			if cErr != nil {
-				log.Println(cErr)
-				time.Sleep(time.Second)
-				continue
-			}
-			fmt.Printf("Read from %s: F: %f C: %f\n", temperDev.Descriptor(), f, c)
+
+			fmt.Printf("Read from %s: F: %.2f C: %.2f\n", dev.Descriptor(), fahrenheit, celsius)
 		}
-		time.Sleep(time.Second)
+
+		select {
+		case <-ctx.Done():
+			fmt.Println("shutting down")
+			return
+		case <-time.After(time.Second):
+		}
 	}
 }
