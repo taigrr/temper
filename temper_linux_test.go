@@ -29,9 +29,15 @@ func TestCToF(t *testing.T) {
 }
 
 func TestNewInvalidPath(t *testing.T) {
-	_, err := New("/dev/nonexistent-temper-device-test")
+	got, err := New("/dev/nonexistent-temper-device-test")
 	if err == nil {
 		t.Error("expected error for nonexistent device path, got nil")
+	}
+	if got == nil {
+		t.Fatal("expected non-nil Temper on error for safe cleanup")
+	}
+	if closeErr := got.Close(); closeErr != nil {
+		t.Fatalf("Close() on failed New result returned error: %v", closeErr)
 	}
 }
 
@@ -44,6 +50,18 @@ func TestTemperStringAndDescriptor(t *testing.T) {
 	}
 	if got := temp.String(); got != desc {
 		t.Errorf("String() = %q, want %q", got, desc)
+	}
+}
+
+func TestCloseSafeOnNilAndZeroValue(t *testing.T) {
+	var nilTemper *Temper
+	if err := nilTemper.Close(); err != nil {
+		t.Fatalf("Close() on nil Temper returned error: %v", err)
+	}
+
+	var zero Temper
+	if err := zero.Close(); err != nil {
+		t.Fatalf("Close() on zero-value Temper returned error: %v", err)
 	}
 }
 

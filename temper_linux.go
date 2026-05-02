@@ -47,15 +47,29 @@ func (t *Temper) String() string {
 }
 
 // Close releases the file descriptors for the Temper device.
+//
+// It is safe to call on a nil or partially initialized Temper.
 func (t *Temper) Close() error {
+	if t == nil {
+		return nil
+	}
+
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	rErr := t.reader.Close()
-	wErr := t.writer.Close()
+
+	rErr := closeFile(t.reader)
+	wErr := closeFile(t.writer)
 	if rErr != nil {
 		return rErr
 	}
 	return wErr
+}
+
+func closeFile(file *os.File) error {
+	if file == nil {
+		return nil
+	}
+	return file.Close()
 }
 
 // ReadC reads the internal sensor temperature in Celsius.
