@@ -65,6 +65,32 @@ func TestCloseSafeOnNilAndZeroValue(t *testing.T) {
 	}
 }
 
+func TestReadCSafeOnNilAndZeroValue(t *testing.T) {
+	var nilTemper *Temper
+	if _, err := nilTemper.ReadC(); err != errUninitializedTemper {
+		t.Fatalf("ReadC() on nil Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+
+	var zero Temper
+	if _, err := zero.ReadC(); err != errUninitializedTemper {
+		t.Fatalf("ReadC() on zero-value Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+}
+
+func TestReadFWithContextSafeOnNilAndZeroValue(t *testing.T) {
+	ctx := context.Background()
+
+	var nilTemper *Temper
+	if _, err := nilTemper.ReadFWithContext(ctx); err != errUninitializedTemper {
+		t.Fatalf("ReadFWithContext() on nil Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+
+	var zero Temper
+	if _, err := zero.ReadFWithContext(ctx); err != errUninitializedTemper {
+		t.Fatalf("ReadFWithContext() on zero-value Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+}
+
 func TestIsInputDevice(t *testing.T) {
 	if isInputDevice("temper999") {
 		t.Error("expected false for non-existent hidraw device")

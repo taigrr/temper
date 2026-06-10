@@ -3,13 +3,20 @@ package temper
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 )
 
+var errUninitializedTemper = errors.New("temper device is uninitialized")
+
 // ReadCWithContext reads the internal sensor temperature in Celsius,
 // respecting the provided context for cancellation/timeout.
 func (t *Temper) ReadCWithContext(ctx context.Context) (float32, error) {
+	if t == nil || t.reader == nil || t.writer == nil {
+		return 0, errUninitializedTemper
+	}
+
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
