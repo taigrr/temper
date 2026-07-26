@@ -2,6 +2,7 @@ package temper
 
 import (
 	"context"
+	"os"
 	"testing"
 )
 
@@ -62,6 +63,58 @@ func TestCloseSafeOnNilAndZeroValue(t *testing.T) {
 	var zero Temper
 	if err := zero.Close(); err != nil {
 		t.Fatalf("Close() on zero-value Temper returned error: %v", err)
+	}
+}
+
+func TestReadCSafeOnNilAndZeroValue(t *testing.T) {
+	var nilTemper *Temper
+	if _, err := nilTemper.ReadC(); err != errUninitializedTemper {
+		t.Fatalf("ReadC() on nil Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+
+	var zero Temper
+	if _, err := zero.ReadC(); err != errUninitializedTemper {
+		t.Fatalf("ReadC() on zero-value Temper error = %v, want %v", err, errUninitializedTemper)
+	}
+}
+
+func TestReadCSafeOnPartiallyInitializedTemper(t *testing.T) {
+	tests := []struct {
+		name string
+		dev  *Temper
+	}{
+		{"missing reader", &Temper{writer: os.Stdout}},
+		{"missing writer", &Temper{reader: os.Stdin}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.dev.ReadC(); err != errUninitializedTemper {
+				t.Fatalf("ReadC() error = %v, want %v", err, errUninitializedTemper)
+			}
+		})
+	}
+}
+
+func TestReadFWithContextSafeOnUninitializedTemper(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		dev  *Temper
+	}{
+		{"nil", nil},
+		{"zero value", &Temper{}},
+		{"missing reader", &Temper{writer: os.Stdout}},
+		{"missing writer", &Temper{reader: os.Stdin}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.dev.ReadFWithContext(ctx); err != errUninitializedTemper {
+				t.Fatalf("ReadFWithContext() error = %v, want %v", err, errUninitializedTemper)
+			}
+		})
 	}
 }
 
