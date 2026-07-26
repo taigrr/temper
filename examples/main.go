@@ -35,18 +35,13 @@ func main() {
 			readCtx, cancel := context.WithTimeout(ctx, time.Second)
 
 			celsius, cErr := dev.ReadCWithContext(readCtx)
+			cancel()
 			if cErr != nil {
-				cancel()
 				log.Println(cErr)
 				continue
 			}
 
-			fahrenheit, fErr := dev.ReadFWithContext(readCtx)
-			cancel()
-			if fErr != nil {
-				log.Println(fErr)
-				continue
-			}
+			fahrenheit := celsius*9.0/5.0 + 32.0
 
 			fmt.Printf("Read from %s: F: %.2f C: %.2f\n", dev.Descriptor(), fahrenheit, celsius)
 		}

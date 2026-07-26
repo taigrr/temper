@@ -21,7 +21,7 @@ func TestCToF(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.celsius*9.0/5.0 + 32.0
+			got := cToF(tt.celsius)
 			if diff := got - tt.wantF; diff > 0.01 || diff < -0.01 {
 				t.Errorf("C to F conversion: got %f, want %f", got, tt.wantF)
 			}
@@ -63,6 +63,57 @@ func TestCloseSafeOnNilAndZeroValue(t *testing.T) {
 	var zero Temper
 	if err := zero.Close(); err != nil {
 		t.Fatalf("Close() on zero-value Temper returned error: %v", err)
+	}
+
+	// double close must remain a no-op
+	if err := zero.Close(); err != nil {
+		t.Fatalf("second Close() on zero-value Temper returned error: %v", err)
+	}
+}
+
+func TestDecodeCelsius(t *testing.T) {
+	tests := []struct {
+		name    string
+		b2, b3  byte
+		want    float32
+		wantErr bool
+	}{
+		{name: "room temp 22.00", b2: 0x08, b3: 0x98, want: 22.00},
+		{name: "zero", b2: 0x00, b3: 0x00, want: 0},
+		{name: "negative -0.20", b2: 0xFF, b3: 0xEC, want: -0.20},
+		{name: "negative -40.00", b2: 0xF0, b3: 0x60, want: -40.00},
+		{name: "too short", b2: 0x00, b3: 0x00, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var resp []byte
+			if tt.wantErr {
+				resp = []byte{0, 1}
+			} else {
+				resp = []byte{0, 0, tt.b2, tt.b3, 0, 0, 0, 0}
+			}
+			got, err := decodeCelsius(resp)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil (value %f)", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if diff := got - tt.want; diff > 0.01 || diff < -0.01 {
+				t.Errorf("decodeCelsius = %f, want %f", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadCWithContextSafeOnZeroValue(t *testing.T) {
+	var zero Temper
+	if _, err := zero.ReadCWithContext(context.Background()); err != errUninitializedTemper {
+		t.Errorf("ReadCWithContext on closed device = %v, want %v", err, errUninitializedTemper)
 	}
 }
 
