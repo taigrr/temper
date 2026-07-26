@@ -21,15 +21,11 @@ type Temper struct {
 // It is the caller's responsibility to call Close()
 // to prevent a file descriptor leak.
 func New(descriptor string) (*Temper, error) {
-	if _, statErr := os.Stat(descriptor); statErr != nil {
-		return &Temper{}, statErr
-	}
 	r, readErr := os.Open(descriptor)
 	if readErr != nil {
 		return &Temper{}, readErr
 	}
-	w, writeErr := os.OpenFile(descriptor,
-		os.O_APPEND|os.O_WRONLY, os.ModeDevice)
+	w, writeErr := os.OpenFile(descriptor, os.O_APPEND|os.O_WRONLY, 0)
 	if writeErr != nil {
 		r.Close()
 		return &Temper{}, writeErr
@@ -59,6 +55,8 @@ func (t *Temper) Close() error {
 
 	rErr := closeFile(t.reader)
 	wErr := closeFile(t.writer)
+	t.reader = nil
+	t.writer = nil
 	if rErr != nil {
 		return rErr
 	}
