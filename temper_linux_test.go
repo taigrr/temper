@@ -2,6 +2,7 @@ package temper
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 )
@@ -112,20 +113,20 @@ func TestDecodeCelsius(t *testing.T) {
 
 func TestReadCWithContextSafeOnZeroValue(t *testing.T) {
 	var zero Temper
-	if _, err := zero.ReadCWithContext(context.Background()); err != errUninitializedTemper {
-		t.Errorf("ReadCWithContext on closed device = %v, want %v", err, errUninitializedTemper)
+	if _, err := zero.ReadCWithContext(context.Background()); !errors.Is(err, ErrUninitializedTemper) {
+		t.Errorf("ReadCWithContext on closed device = %v, want %v", err, ErrUninitializedTemper)
 	}
 }
 
 func TestReadCSafeOnNilAndZeroValue(t *testing.T) {
 	var nilTemper *Temper
-	if _, err := nilTemper.ReadC(); err != errUninitializedTemper {
-		t.Fatalf("ReadC() on nil Temper error = %v, want %v", err, errUninitializedTemper)
+	if _, err := nilTemper.ReadC(); !errors.Is(err, ErrUninitializedTemper) {
+		t.Fatalf("ReadC() on nil Temper error = %v, want %v", err, ErrUninitializedTemper)
 	}
 
 	var zero Temper
-	if _, err := zero.ReadC(); err != errUninitializedTemper {
-		t.Fatalf("ReadC() on zero-value Temper error = %v, want %v", err, errUninitializedTemper)
+	if _, err := zero.ReadC(); !errors.Is(err, ErrUninitializedTemper) {
+		t.Fatalf("ReadC() on zero-value Temper error = %v, want %v", err, ErrUninitializedTemper)
 	}
 }
 
@@ -140,8 +141,8 @@ func TestReadCSafeOnPartiallyInitializedTemper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.dev.ReadC(); err != errUninitializedTemper {
-				t.Fatalf("ReadC() error = %v, want %v", err, errUninitializedTemper)
+			if _, err := tt.dev.ReadC(); !errors.Is(err, ErrUninitializedTemper) {
+				t.Fatalf("ReadC() error = %v, want %v", err, ErrUninitializedTemper)
 			}
 		})
 	}
@@ -162,8 +163,8 @@ func TestReadFWithContextSafeOnUninitializedTemper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.dev.ReadFWithContext(ctx); err != errUninitializedTemper {
-				t.Fatalf("ReadFWithContext() error = %v, want %v", err, errUninitializedTemper)
+			if _, err := tt.dev.ReadFWithContext(ctx); !errors.Is(err, ErrUninitializedTemper) {
+				t.Fatalf("ReadFWithContext() error = %v, want %v", err, ErrUninitializedTemper)
 			}
 		})
 	}
