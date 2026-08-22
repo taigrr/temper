@@ -74,7 +74,7 @@ filename constraint, and the module targets `go 1.26`.
   before the deadlines are reset and the lock released, so it can never touch
   the descriptors after the call returns or race `Close`. `ReadCWithContext`
   also guards against uninitialized/zero-value devices and use-after-`Close`
-  (nil descriptors → `errUninitializedTemper`), checking the descriptors under
+  (nil descriptors -> `ErrUninitializedTemper`), checking the descriptors under
   the lock so the guard can't race `Close`.
 - **Concurrency**: each `Temper` has a `sync.Mutex` serializing reads; a single
   device must not be read concurrently.

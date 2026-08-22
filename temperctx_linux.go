@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
-var errUninitializedTemper = errors.New("temper device is uninitialized")
+// ErrUninitializedTemper is returned when reading from a nil, zero-value,
+// partially initialized, or closed Temper device.
+var ErrUninitializedTemper = errors.New("temper device is uninitialized")
 
 // ReadCWithContext reads the internal sensor temperature in Celsius,
 // respecting the provided context for cancellation/timeout.
@@ -21,7 +23,7 @@ var errUninitializedTemper = errors.New("temper device is uninitialized")
 // are serialized and the descriptors are never touched concurrently.
 func (t *Temper) ReadCWithContext(ctx context.Context) (float32, error) {
 	if t == nil {
-		return 0, errUninitializedTemper
+		return 0, ErrUninitializedTemper
 	}
 
 	t.lock.Lock()
@@ -36,7 +38,7 @@ func (t *Temper) ReadCWithContext(ctx context.Context) (float32, error) {
 	// (which nils the descriptors under the lock). Reading the descriptors
 	// under the lock avoids racing a concurrent Close.
 	if t.reader == nil || t.writer == nil {
-		return 0, errUninitializedTemper
+		return 0, ErrUninitializedTemper
 	}
 
 	// Clear any deadline left behind by a previous cancelled call so this
