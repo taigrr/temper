@@ -78,7 +78,7 @@ func FindTempers() ([]*Temper, error) {
 // annoying and distracting typing to happen, so this function allows us to
 // skip the check on devices we know aren't temper sensors
 func isInputDevice(temperDescriptor string) bool {
-	hidrawDesc := strings.ReplaceAll(temperDescriptor, "temper", "hidraw")
+	hidrawDesc := strings.ReplaceAll(filepath.Base(temperDescriptor), "temper", "hidraw")
 	inputPath := filepath.Join("/sys/class/hidraw", hidrawDesc, "device/input")
 	if _, statErr := os.Stat(inputPath); statErr == nil {
 		return true

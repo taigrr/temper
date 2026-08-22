@@ -171,8 +171,17 @@ func TestReadFWithContextSafeOnUninitializedTemper(t *testing.T) {
 }
 
 func TestIsInputDevice(t *testing.T) {
-	if isInputDevice("temper999") {
-		t.Error("expected false for non-existent hidraw device")
+	tests := []string{
+		"temper999",
+		"/dev/temper999",
+	}
+
+	for _, descriptor := range tests {
+		t.Run(descriptor, func(t *testing.T) {
+			if isInputDevice(descriptor) {
+				t.Error("expected false for non-existent hidraw device")
+			}
+		})
 	}
 }
 
