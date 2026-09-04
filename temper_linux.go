@@ -2,6 +2,7 @@ package temper
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 )
@@ -57,10 +58,7 @@ func (t *Temper) Close() error {
 	wErr := closeFile(t.writer)
 	t.reader = nil
 	t.writer = nil
-	if rErr != nil {
-		return rErr
-	}
-	return wErr
+	return errors.Join(rErr, wErr)
 }
 
 func closeFile(file *os.File) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -69,6 +70,38 @@ func TestCloseSafeOnNilAndZeroValue(t *testing.T) {
 	// double close must remain a no-op
 	if err := zero.Close(); err != nil {
 		t.Fatalf("second Close() on zero-value Temper returned error: %v", err)
+	}
+}
+
+func TestCloseReturnsReaderAndWriterErrors(t *testing.T) {
+	reader, err := os.CreateTemp(t.TempDir(), "reader")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer, err := os.CreateTemp(t.TempDir(), "writer")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dev := &Temper{reader: reader, writer: writer}
+	closeErr := dev.Close()
+	if closeErr == nil {
+		t.Fatal("expected close error, got nil")
+	}
+
+	errText := closeErr.Error()
+	if !strings.Contains(errText, reader.Name()) {
+		t.Fatalf("Close() error %q missing reader path %q", errText, reader.Name())
+	}
+	if !strings.Contains(errText, writer.Name()) {
+		t.Fatalf("Close() error %q missing writer path %q", errText, writer.Name())
 	}
 }
 
