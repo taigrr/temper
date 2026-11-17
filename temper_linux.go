@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"syscall"
 )
 
 // Temper represents a connection to a TEMPer USB thermometer device.
@@ -19,14 +20,16 @@ type Temper struct {
 }
 
 // New opens a new Temper device at the given descriptor path.
+// Device descriptors are opened nonblocking so opening cannot wait for a peer
+// and Go can use poll-based I/O deadlines for context cancellation.
 // It is the caller's responsibility to call Close()
 // to prevent a file descriptor leak.
 func New(descriptor string) (*Temper, error) {
-	r, readErr := os.Open(descriptor)
+	r, readErr := os.OpenFile(descriptor, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if readErr != nil {
 		return &Temper{}, readErr
 	}
-	w, writeErr := os.OpenFile(descriptor, os.O_APPEND|os.O_WRONLY, 0)
+	w, writeErr := os.OpenFile(descriptor, os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if writeErr != nil {
 		r.Close()
 		return &Temper{}, writeErr
