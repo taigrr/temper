@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestCToF(t *testing.T) {
@@ -243,5 +246,36 @@ func TestFindTempersDoesNotPanic(t *testing.T) {
 	}
 	for _, dev := range tempers {
 		dev.Close()
+	}
+}
+
+// A stale udev path must not hang New before a context can be applied.
+func TestNewFIFOIsNonblocking(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "temper-fifo")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		device, err := New(path)
+		if err != nil {
+			t.Errorf("New: %v", err)
+		}
+		if err := device.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		// Release a blocking open so a regression cannot leak a goroutine.
+		release, err := os.OpenFile(path, os.O_RDWR|syscall.O_NONBLOCK, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer release.Close()
+		<-done
+		t.Fatal("New blocked waiting for a FIFO peer")
 	}
 }
